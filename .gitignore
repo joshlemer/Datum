@@ -1,0 +1,6 @@
+
+.idea/
+**/target/
+derby.log
+**/*.sc
+**/.DS_Store
