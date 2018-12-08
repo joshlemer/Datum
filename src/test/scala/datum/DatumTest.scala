@@ -1,29 +1,48 @@
 package datum
 
-import io.circe.JsonObject
-import org.scalatest.{FlatSpec, Matchers}
-import org.scalatest.Assertions._
+//import io.circe.JsonObject
+//import org.scalatest.{FlatSpec, Matchers}
+//import org.scalatest.Assertions._
+//
+object DatumTest extends App {
 
-class DatumTest extends FlatSpec with Matchers {
+//  {
 
+//    val x = Datum(
+//      A ->> 1,
+//      B ->> "hey"
+//    )
+//
+//    val y = Datum(
+//      A ->> 4,
+//      C ->> 'x'
+//    )
+//
+//    val z = x ++ y
+//
+//    println(z) // Datum(a -> 4, b -> hey, c -> x)
+//
+//    val s: Option[Char] = z.get(C)
+//    println(s) // Some('x')
+//
+//  }
 
   val A = Field[Int]("a")
   val B = Field[String]("b")
   val C = Field[Char]("c")
 
-  val x = Datum(
-    A -> 1,
-    B -> "hey"
+  implicit val dString = Field.dynamicFactory[String]
+//  implicit val dInt = Field.dynamicFactory[Int]
+
+  val d = Datum(
+    A ->> 4,
+    C ->> 'x',
+    "foo" ->> "hey!"
+//    "bar" ->> 1234
   )
 
-  val y = Datum(
-    A -> 4,
-    C -> 'x'
-  )
+  println(d.get("bar"))
 
-  val z = x ++ y
-
-  println(z) // Datum(a -> 4, b -> hey, c -> x)
 
 
 
