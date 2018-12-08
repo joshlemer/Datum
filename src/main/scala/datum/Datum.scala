@@ -1,67 +1,70 @@
 package datum
 
-trait Datum[+F <: Field] {
+trait Datum extends Iterable[Field#FieldValue] {
 
-  def fields: Iterable[FieldValue[F]]
+  def get(field: Field): Option[field.Value]
 
-  def get[F0 >: F <: Field](field: F0): Option[field.Value]
+  def +(that: Field#FieldValue): Datum
 
-  def +[F0 >: F <: Field](that: F0)(value: that.Value): Datum[F0]
+  def ++(that: Iterable[Field#FieldValue]): Datum = that.foldLeft(this)(_ + _)
 
-  def +[F0 >: F <: Field](that: FieldValue[F0]): Datum[F0]
-
-  def -[F0 >: F <: Field](that: F0): Datum[F0]
+  def -(that: Field): Datum
 
   override def toString: String =
-    fields.iterator
+    iterator
       .map(kv => kv.field.toString + " -> " + kv.value.toString)
       .mkString("Datum(", ", ", ")")
 }
 
 object Datum {
+  def apply(fieldValues: Field#FieldValue*): Datum = new Impl(fieldValues.map(_.toTuple).toMap)
 
-  def apply[F <: Field](fieldValues: FieldValue[F]*): Datum[F] =
-    new Impl(fieldValues.map(_.toTuple).toMap)
-
-  class Impl[+F <: Field](_fields: Map[Field, Any]) extends Datum[F] {
-
-    override def fields: Iterable[FieldValue[F]] =
-      _fields.map {
-        case (k, v) =>
-          val k0 = k.asInstanceOf[F]
-          k0 -> v.asInstanceOf[k0.Value]
-      }
-
-    override def get[FF >: F <: Field](field: FF): Option[field.Value] =
-      _fields.get(field).map(_.asInstanceOf[field.Value])
-    override def +[FF >: F <: Field](that: FF)(value: that.Value) =
-      new Impl(_fields + (that -> value).toTuple)
-    override def +[FF >: F <: Field](that: FieldValue[FF]) =
-      new Impl[F](_fields + that.toTuple)
-    override def -[FF >: F <: Field](that: FF) = new Impl(_fields - that)
+  private class Impl[+F <: Field](_fields: Map[Field, Field#FieldValue]) extends Datum {
+    override def iterator: Iterator[Field#FieldValue] = _fields.valuesIterator
+    override def get(field: Field): Option[field.Value] = _fields.get(field).map(_.value.asInstanceOf[field.Value])
+    override def +(that: Field#FieldValue) = {
+      val newFields = _fields + ((that.field, that))
+      if (newFields eq _fields) this else new Impl(newFields)
+    }
+    override def -(that: Field) = {
+      val newFields = _fields - that
+      if (newFields eq _fields) this else new Impl(newFields)
+    }
   }
 }
 
 trait Field { fieldSelf =>
   type Value
-  def ->(value: Value): FieldValue[this.type] = {
+
+  def name: String
+
+  trait FieldValue {
+    val field: fieldSelf.type = fieldSelf
+
+    val value: field.Value
+
+    def toTuple: (fieldSelf.type, FieldValue) = (field, this)
+  }
+
+  def ->(value: Value): this.FieldValue = {
     val v = value
-    new FieldValue[this.type] {
+    new this.FieldValue {
       override val field: fieldSelf.type = fieldSelf
       override val value: this.field.Value = v
     }
   }
+
+  override final def equals(obj: Any): Boolean = this eq obj.asInstanceOf[AnyRef]
+
+  override final def toString: String = name
 }
 
-object Field extends FieldCompanion[Field] {
-  def ofType[V]: valueType[V] = new valueType[V] {}
-}
-
-
-trait FieldCompanion[F <: Field] {
-  trait valueType[V] extends Field { this: F =>
+object Field {
+  private final class Impl[V](val name: String) extends Field {
     type Value = V
   }
+
+  final def apply[V](name: String): Field { type Value = V } = new Impl[V](name)
 }
 
 trait FieldValue[+F <: Field] {
@@ -70,12 +73,4 @@ trait FieldValue[+F <: Field] {
   val value: field.Value
 
   def toTuple: (F, field.Value) = (field, value)
-}
-
-object FieldValue {
-//  implicit def fromTuple[F <: Field, V](fieldValue: (F, V))(implicit ev: V <:< fieldValue._1.Value): FieldValue[F] =
-//    new FieldValue[fieldValue._1.type] {
-//      override val field: fieldValue._1.type = fieldValue._1
-//      override val value: fieldValue._1.Value = ev(fieldValue._2)
-//    }
 }
